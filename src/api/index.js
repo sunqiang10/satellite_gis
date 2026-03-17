@@ -1,251 +1,615 @@
-import request from './request'
+import usersSeed from './mock-data/users.json'
+import satellitesSeed from './mock-data/satellites.json'
+import stationsSeed from './mock-data/stations.json'
+import availableSegmentsSeed from './mock-data/available-segments.json'
 
-/**
- * 用户相关接口
- */
+const clone = (value) => JSON.parse(JSON.stringify(value))
+const wait = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const createState = () => ({
+  users: clone(usersSeed),
+  satellites: clone(satellitesSeed),
+  stations: clone(stationsSeed),
+  availableSegments: clone(availableSegmentsSeed),
+})
+
+const state = createState()
+
+const nowText = () => {
+  const now = new Date()
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+}
+
+const paginate = (list, options = {}) => {
+  const current = Number(options.pageNum || options.page || 1)
+  const size = Number(options.pageSize || options.size || list.length || 10)
+  const start = (current - 1) * size
+  const records = list.slice(start, start + size)
+
+  return {
+    records: clone(records),
+    total: list.length,
+    totalCount: list.length,
+    current,
+    size,
+    pageNum: current,
+    pageSize: size,
+  }
+}
+
+const nextNumericId = (list) => {
+  const ids = list.map((item) => Number(item.id)).filter((id) => !Number.isNaN(id))
+  return (ids.length ? Math.max(...ids) : 0) + 1
+}
+
+const matchKeyword = (value, keyword) => String(value || '').toLowerCase().includes(String(keyword || '').toLowerCase())
+
+const getCurrentDemoUser = () => {
+  const token = localStorage.getItem('token') || ''
+  const matched = state.users.find((item) => token.includes(item.logonName))
+  return matched || state.users[0]
+}
+
+const normalizeTaskMode = (taskMode) => {
+  if (Array.isArray(taskMode)) {
+    return taskMode.filter(Boolean).join(';')
+  }
+  return String(taskMode || '')
+}
+
+const computeAvailableSegmentStats = () => {
+  const total = state.availableSegments.length
+  const executing = state.availableSegments.filter((item) => String(item.status) === '2').length
+  const scheduled = state.availableSegments.filter((item) => ['0', '1'].includes(String(item.status))).length
+  const completed = state.availableSegments.filter((item) => String(item.status) === '3').length
+
+  return {
+    total,
+    executing,
+    scheduled,
+    completed,
+    totalIncrement: 3,
+    executingIncrement: 1,
+    scheduledIncrement: 2,
+    completedIncrement: 1,
+  }
+}
+
 export const userApi = {
-  // 用户登录
-  login(data) {
-    return request.post('/user/login', data)
-  },
-  
-  // 配置用户卫星
-  configUserSatellite(data) {
-    return request.post('/user/configUserSatellite', data)
+  async login(data = {}) {
+    await wait()
+
+    const username = data.username || data.logonName
+    const user = state.users.find((item) => item.logonName === username || item.username === username)
+
+    if (!user) {
+      throw new Error('登录失败:用户名不存在')
+    }
+
+    if (user.password !== data.password) {
+      throw new Error('登录失败:密码不正确')
+    }
+
+    const token = `mock-token-${user.logonName}-${Date.now()}`
+
+    return {
+      id: user.id,
+      logonName: user.logonName,
+      username: user.username,
+      role: user.role,
+      realName: user.realName,
+      company: user.company,
+      permissions: user.role === 'admin' ? ['read', 'write', 'delete'] : ['read', 'write'],
+      token,
+    }
   },
 
-  // 获取用户列表
-  getList() {
-    return request.get('/user/list')
+  async configUserSatellite(data = {}) {
+    await wait()
+    return {
+      success: true,
+      message: '配置成功',
+      data,
+    }
   },
 
-  // 添加用户
-  add(data) {
-    return request.post('/user/add', data)
+  async getList() {
+    await wait()
+    return clone(state.users).map(({ password, ...rest }) => rest)
   },
 
-  // 更新用户
-  update(data) {
-    return request.post('/user/update', data)
+  async add(data = {}) {
+    await wait()
+    const id = String(nextNumericId(state.users))
+    const record = {
+      id,
+      logonName: data.logonName || `user${id}`,
+      username: data.username || data.logonName || `user${id}`,
+      password: data.password || '123456',
+      telephone: data.telephone || '',
+      email: data.email || '',
+      role: data.role || 'user',
+      company: data.company || '',
+      position: data.position || '',
+      communicator: data.communicator || '',
+      realName: data.realName || data.username || data.logonName || `用户${id}`,
+      regTime: data.regTime || nowText(),
+    }
+    state.users.unshift(record)
+    const { password, ...rest } = record
+    return clone(rest)
   },
 
-  // 删除用户
-  delete(id) {
-    return request.post('/user/delete', { id })
-  }
+  async update(data = {}) {
+    await wait()
+    const index = state.users.findIndex((item) => String(item.id) === String(data.id))
+    if (index === -1) {
+      throw new Error('用户不存在')
+    }
+
+    state.users[index] = {
+      ...state.users[index],
+      ...clone(data),
+      password: data.password || state.users[index].password,
+    }
+
+    const { password, ...rest } = state.users[index]
+    return clone(rest)
+  },
+
+  async delete(id) {
+    await wait()
+    state.users.splice(
+      state.users.findIndex((item) => String(item.id) === String(id)),
+      1,
+    )
+    return {
+      success: true,
+      id,
+    }
+  },
 }
 
-/**
- * 卫星管理相关接口
- */
 export const satelliteApi = {
-  // 获取卫星列表
-  getList(data = {}) {
-    return request.post('/satellite/list', data)
+  async getList(data = {}) {
+    await wait()
+    let list = clone(state.satellites)
+
+    if (data.keyword) {
+      list = list.filter(
+        (item) => matchKeyword(item.satName, data.keyword) || matchKeyword(item.satId, data.keyword) || matchKeyword(item.owner, data.keyword),
+      )
+    }
+
+    return paginate(list, data)
   },
-  
-  // 添加卫星
-  add(data) {
-    return request.post('/satellite/add', data)
+
+  async add(data = {}) {
+    await wait()
+    const id = nextNumericId(state.satellites)
+    const record = {
+      id,
+      satId: data.satId || `SAT-DEMO-${id}`,
+      satName: data.satName || `演示卫星-${id}`,
+      satTleName: data.satTleName || `DEMO-SAT-${id}`,
+      satType: Number(data.satType || 4),
+      owner: data.owner || '演示单位',
+      orbitNum: Number(data.orbitNum || 1000 + id),
+      mass: Number(data.mass || 3000),
+      area: Number(data.area || 10),
+      batteryCapacity: Number(data.batteryCapacity || 80),
+      storageCapacity: Number(data.storageCapacity || 256),
+      dataRate: Number(data.dataRate || 120),
+      attitudeType: data.attitudeType || '三轴稳定',
+      canUse: Number(data.canUse ?? 1),
+      addTime: data.addTime || nowText(),
+      modTime: nowText(),
+    }
+    state.satellites.unshift(record)
+    return clone(record)
   },
-  
-  // 更新卫星
-  update(data) {
-    return request.post('/satellite/update', data)
+
+  async update(data = {}) {
+    await wait()
+    const index = state.satellites.findIndex((item) => Number(item.id) === Number(data.id))
+    if (index === -1) {
+      throw new Error('卫星不存在')
+    }
+
+    state.satellites[index] = {
+      ...state.satellites[index],
+      ...clone(data),
+      modTime: nowText(),
+    }
+
+    return clone(state.satellites[index])
   },
-  
-  // 删除卫星
-  delete(id) {
-    return request.post('/satellite/delete', { id })
-  }
+
+  async delete(id) {
+    await wait()
+    const index = state.satellites.findIndex((item) => Number(item.id) === Number(id))
+    if (index !== -1) {
+      state.satellites.splice(index, 1)
+    }
+    return {
+      success: true,
+      id,
+    }
+  },
 }
 
-/**
- * 地面站管理相关接口
- */
 export const stationApi = {
-  // 获取地面站列表
-  getList(data = {}) {
-    return request.post('/station/list', data)
+  async getList(data = {}) {
+    await wait()
+    let list = clone(state.stations)
+
+    if (data.keyword) {
+      list = list.filter(
+        (item) => matchKeyword(item.stationName, data.keyword) || matchKeyword(item.stationId, data.keyword) || matchKeyword(item.owner, data.keyword),
+      )
+    }
+
+    return paginate(list, data)
   },
 
-  // 添加地面站
-  add(data) {
-    return request.post('/station/add', data)
+  async add(data = {}) {
+    await wait()
+    const id = nextNumericId(state.stations)
+    const record = {
+      id,
+      stationId: data.stationId || `ST-DEMO-${id.toString().padStart(3, '0')}`,
+      stationName: data.stationName || `演示站点-${id}`,
+      stationCode: data.stationCode || `DM${id}`,
+      owner: data.owner || '演示单位',
+      canUse: Number(data.canUse ?? 1),
+      lon: Number(data.lon || 0),
+      lat: Number(data.lat || 0),
+      alt: Number(data.alt || 0),
+      addTime: data.addTime || nowText(),
+      modTime: nowText(),
+    }
+    state.stations.unshift(record)
+    return clone(record)
   },
 
-  // 更新地面站
-  update(data) {
-    return request.post('/station/update', data)
+  async update(data = {}) {
+    await wait()
+    const index = state.stations.findIndex((item) => Number(item.id) === Number(data.id))
+    if (index === -1) {
+      throw new Error('站点不存在')
+    }
+
+    state.stations[index] = {
+      ...state.stations[index],
+      ...clone(data),
+      modTime: nowText(),
+    }
+
+    return clone(state.stations[index])
   },
 
-  // 删除地面站
-  delete(id) {
-    return request.post('/station/delete', { id })
+  async delete(id) {
+    await wait()
+    const index = state.stations.findIndex((item) => Number(item.id) === Number(id))
+    if (index !== -1) {
+      state.stations.splice(index, 1)
+    }
+    return {
+      success: true,
+      id,
+    }
   },
 
-  // 计算可用弧段
-  computeAvailableArcSegments(data) {
-    return request.post('/station/computeAvailableArcSegments', data)
+  async computeAvailableArcSegments(data = {}) {
+    await wait()
+    return clone(state.availableSegments).filter(
+      (item) => (!data.satellite || item.satellite === data.satellite) && (!data.antenna || item.antenna === data.antenna),
+    )
   },
 
-  // 过滤已占用弧段
-  getUsedSegmentSX(data) {
-    return request.post('/station/getUsedSegmentSX', data)
-  }
+  async getUsedSegmentSX() {
+    await wait()
+    return clone(state.availableSegments).filter((item) => ['1', '2'].includes(String(item.status)))
+  },
 }
 
-/**
- * 任务/弧段管理相关接口
- */
 export const taskApi = {
-  // 查询可用弧段（空闲弧段）
-  queryIdleArc(data = {}) {
-    return request.post('/station/task/idleArc/query', data)
+  async queryIdleArc(data = {}) {
+    await wait()
+    return clone(state.availableSegments).filter((item) => String(item.status) === '0' && (!data.satellite || item.satellite === data.satellite))
   },
-  
-  // 申请弧段
-  applyArc(data) {
-    return request.post('/station/task/apply', data)
+
+  async applyArc(data = {}) {
+    await wait()
+    return availableSegmentsApi.batchApply(data)
   },
-  
-  // 变更弧段
-  editArc(data) {
-    return request.post('/station/task/edit', data)
+
+  async editArc(data = {}) {
+    await wait()
+    return {
+      code: 200,
+      message: '任务修改成功',
+      data,
+      total: 1,
+    }
   },
-  
-  // 取消弧段
-  cancelArc(data) {
-    return request.post('/station/task/cancel', data)
+
+  async cancelArc(data = {}) {
+    await wait()
+    return {
+      code: 200,
+      message: '任务取消成功',
+      data,
+      total: Array.isArray(data) ? data.length : 1,
+    }
   },
-  
-  // 查询已申请弧段
-  queryArrangedArc(data = {}) {
-    return request.post('/station/task/arrangedArc/query', data)
-  }
+
+  async queryArrangedArc() {
+    await wait()
+    return clone(state.availableSegments).filter((item) => ['1', '2'].includes(String(item.status)))
+  },
 }
 
-/**
- * 轨道根数相关接口
- */
 export const trackApi = {
-  // 获取瞬时轨道根数
-  getTrackGen(data = {}) {
-    return request.post('/track/trackGen', data)
+  async getTrackGen(data = {}) {
+    await wait()
+    return {
+      ...data,
+      satellite: data.satellite || 'SAT-DEMO',
+      a: 6878.14,
+      e: 0.0012,
+      i: 98.6,
+      o: 120.3,
+      w: 35.2,
+      m: 280.6,
+      revNum: 1288,
+      conStatus: 1,
+    }
   },
-  
-  // 获取TLE轨道根数
-  getTrackTle(data = {}) {
-    return request.post('/track/trackTle', data)
-  }
+
+  async getTrackTle(data = {}) {
+    await wait()
+    return {
+      ...data,
+      satellite: data.satellite || 'SAT-DEMO',
+      tle0: 'SAT-DEMO',
+      line1: '1 25544U 98067A   26076.51234567  .00001234  00000-0  29603-4 0  9991',
+      line2: '2 25544  51.6423 104.1234 0005123 128.1234 289.5678 15.49876543234567',
+      conStatus: '1',
+    }
+  },
 }
 
-/**
- * 测控数据相关接口（需要根据后端实际情况调整）
- */
 export const ttcApi = {
-  // 获取遥控记录
-  getRemoteControlList(data = {}) {
-    return request.post('/ttc/remoteControl/list', data)
+  async getRemoteControlList() {
+    await wait()
+    return []
   },
-  
-  // 获取遥测记录
-  getTelemetryList(data = {}) {
-    return request.post('/ttc/telemetry/list', data)
+
+  async getTelemetryList() {
+    await wait()
+    return []
   },
-  
-  // 获取数传记录
-  getDataTransmissionList(data = {}) {
-    return request.post('/ttc/dataTransmission/list', data)
+
+  async getDataTransmissionList() {
+    await wait()
+    return []
   },
-  
-  // 发送指令
-  sendCommand(data) {
-    return request.post('/ttc/command/send', data)
-  }
+
+  async sendCommand(data = {}) {
+    await wait()
+    return {
+      success: true,
+      message: '指令已提交',
+      data,
+    }
+  },
 }
 
-/**
- * 仪表盘统计相关接口
- */
 export const dashboardApi = {
-  // 获取统计数据
-  getStats() {
-    return request.post('/dashboard/stats')
+  async getStats() {
+    await wait()
+    return {
+      onlineSatellites: state.satellites.filter((item) => item.canUse === 1).length,
+      onlineStations: state.stations.filter((item) => item.canUse === 1).length,
+      tasks: state.availableSegments.filter((item) => ['1', '2'].includes(String(item.status))).length,
+      users: state.users.length,
+    }
   },
 
-  // 获取轨道数据
-  getOrbitData() {
-    return request.post('/dashboard/orbitData')
+  async getOrbitData() {
+    await wait()
+    return clone(state.availableSegments.slice(0, 8))
   },
 
-  // 获取任务时间线
-  getMissionTimeline() {
-    return request.post('/dashboard/missionTimeline')
-  }
+  async getMissionTimeline() {
+    await wait()
+    return clone(state.availableSegments.slice(0, 8)).map((item) => ({
+      taskId: item.taskId,
+      satellite: item.satellite,
+      start: item.accessStartTime,
+      end: item.accessEndTime,
+      status: item.status,
+    }))
+  },
 }
 
-/**
- * 可用弧段管理相关接口 (AvailableSegments)
- */
 export const availableSegmentsApi = {
-  // 分页查询弧段列表
-  getList(data = {}) {
-    return request.post('/available-segments/list', data)
+  async getList(data = {}) {
+    await wait()
+    let list = clone(state.availableSegments)
+
+    if (data.satellite) {
+      list = list.filter((item) => item.satellite === data.satellite)
+    }
+    if (data.antenna) {
+      list = list.filter((item) => item.antenna === data.antenna)
+    }
+    if (data.circleId) {
+      list = list.filter((item) => matchKeyword(item.circleId, data.circleId))
+    }
+    if (data.status !== undefined && data.status !== null && data.status !== '') {
+      list = list.filter((item) => String(item.status) === String(data.status))
+    }
+    if (data.taskMode) {
+      const modes = String(data.taskMode).split(';').filter(Boolean)
+      list = list.filter((item) => modes.every((mode) => String(item.taskMode || '').includes(mode)))
+    }
+    if (data.startTime) {
+      list = list.filter((item) => String(item.accessStartTime) >= String(data.startTime))
+    }
+    if (data.endTime) {
+      list = list.filter((item) => String(item.accessEndTime) <= String(data.endTime))
+    }
+
+    return paginate(list, data)
   },
 
-  // 查询单条弧段
-  getById(id) {
-    return request.get(`/available-segments/${id}`)
+  async getById(id) {
+    await wait()
+    return clone(state.availableSegments.find((item) => Number(item.id) === Number(id)) || null)
   },
 
-  // 新增弧段
-  add(data) {
-    return request.post('/available-segments', data)
+  async add(data = {}) {
+    await wait()
+    const record = {
+      id: nextNumericId(state.availableSegments),
+      satellite: data.satellite || '',
+      antenna: data.antenna || '',
+      taskId: data.taskId || `TASK-${Date.now()}`,
+      maxE: data.maxE || '0',
+      accessStartTime: data.accessStartTime || nowText(),
+      accessEndTime: data.accessEndTime || nowText(),
+      scStartTime: data.scStartTime || nowText(),
+      scEndTime: data.scEndTime || nowText(),
+      status: String(data.status ?? '0'),
+      taskMode: normalizeTaskMode(data.taskMode),
+      circleId: data.circleId || '',
+      accessCenterTime: data.accessCenterTime || nowText(),
+      startE: data.startE || '',
+      endE: data.endE || '',
+      originator: data.originator || 'MCC-01',
+      username: data.username || '',
+      submitTime: data.submitTime || null,
+    }
+    state.availableSegments.unshift(record)
+    return clone(record)
   },
 
-  // 更新弧段
-  update(id, data) {
-    return request.put(`/available-segments/${id}`, data)
+  async update(id, data = {}) {
+    await wait()
+    const index = state.availableSegments.findIndex((item) => Number(item.id) === Number(id))
+    if (index === -1) {
+      throw new Error('弧段不存在')
+    }
+    state.availableSegments[index] = {
+      ...state.availableSegments[index],
+      ...clone(data),
+      taskMode: data.taskMode ? normalizeTaskMode(data.taskMode) : state.availableSegments[index].taskMode,
+    }
+    return clone(state.availableSegments[index])
   },
 
-  // 删除弧段
-  delete(id) {
-    return request.delete(`/available-segments/${id}`)
+  async delete(id) {
+    await wait()
+    const index = state.availableSegments.findIndex((item) => Number(item.id) === Number(id))
+    if (index !== -1) {
+      state.availableSegments.splice(index, 1)
+    }
+    return {
+      success: true,
+      id,
+    }
   },
 
-  // 批量删除弧段
-  batchDelete(ids) {
-    return request.post('/available-segments/batch-delete', ids)
+  async batchDelete(ids = []) {
+    await wait()
+    const idSet = new Set(ids.map((item) => Number(item)))
+    state.availableSegments = state.availableSegments.filter((item) => !idSet.has(Number(item.id)))
+    return {
+      success: true,
+      deleted: ids.length,
+    }
   },
 
-  // 更新弧段状态
-  updateStatus(id, status) {
-    return request.post(`/available-segments/${id}/status?status=${status}`)
+  async updateStatus(id, status) {
+    await wait()
+    const item = state.availableSegments.find((record) => Number(record.id) === Number(id))
+    if (!item) {
+      throw new Error('弧段不存在')
+    }
+
+    item.status = String(status)
+    if (String(status) === '2') {
+      item.username = getCurrentDemoUser().username
+      item.submitTime = nowText()
+    }
+    if (String(status) === '0') {
+      item.username = ''
+      item.submitTime = null
+    }
+
+    return {
+      success: true,
+      data: clone(item),
+    }
   },
 
-  // 计算可用弧段
-  compute(data) {
-    return request.post('/available-segments/compute', data)
+  async compute(data = {}) {
+    await wait()
+    return clone(state.availableSegments).filter(
+      (item) => (!data.satellite || item.satellite === data.satellite) && (!data.antenna || item.antenna === data.antenna),
+    )
   },
 
-  // 查询可用弧段（兼容旧接口）
-  query(data) {
-    return request.post('/available-segments/query', data)
+  async query(data = {}) {
+    await wait()
+    return this.getList(data)
   },
 
-  // 获取任务统计数据
-  getStats() {
-    return request.post('/available-segments/stats')
+  async getStats() {
+    await wait()
+    return computeAvailableSegmentStats()
   },
 
-  // 批量申请任务
-  batchApply(data) {
-    return request.post('/available-segments/batch-apply', data)
+  async batchApply(data = {}) {
+    await wait()
+
+    const taskIds = new Set((data.planList || []).map((item) => item.taskID))
+    let success = 0
+
+    state.availableSegments.forEach((item) => {
+      if (taskIds.has(item.taskId)) {
+        item.status = '2'
+        item.taskMode = normalizeTaskMode(data.daType || item.taskMode)
+        item.username = getCurrentDemoUser().username
+        item.submitTime = nowText()
+        success += 1
+      }
+    })
+
+    return {
+      code: 200,
+      message: '批量申请成功',
+      data: {
+        success,
+        fail: 0,
+      },
+    }
   },
 
-  // 更新任务类型
-  updateTaskMode(id, taskMode) {
-    return request.post(`/available-segments/${id}/taskMode`, { taskMode })
-  }
+  async updateTaskMode(id, taskMode) {
+    await wait()
+    const item = state.availableSegments.find((record) => Number(record.id) === Number(id))
+    if (!item) {
+      throw new Error('弧段不存在')
+    }
+
+    item.taskMode = normalizeTaskMode(taskMode)
+    return {
+      success: true,
+      data: clone(item),
+    }
+  },
 }

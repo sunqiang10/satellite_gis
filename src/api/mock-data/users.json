@@ -1,0 +1,58 @@
+[
+  {
+    "id": "1",
+    "logonName": "admin",
+    "username": "admin",
+    "password": "admin888",
+    "telephone": "13800000001",
+    "email": "admin@satellite.local",
+    "role": "admin",
+    "company": "航天测控中心",
+    "position": "系统管理员",
+    "communicator": "陈晨",
+    "realName": "管理员",
+    "regTime": "2026-03-01T09:00:00"
+  },
+  {
+    "id": "2",
+    "logonName": "planner01",
+    "username": "planner01",
+    "password": "123456",
+    "telephone": "13800000002",
+    "email": "planner01@satellite.local",
+    "role": "user",
+    "company": "任务计划部",
+    "position": "计划员",
+    "communicator": "李琪",
+    "realName": "李琪",
+    "regTime": "2026-03-02T10:15:00"
+  },
+  {
+    "id": "3",
+    "logonName": "qc01",
+    "username": "qc01",
+    "password": "123456",
+    "telephone": "13800000003",
+    "email": "qc01@satellite.local",
+    "role": "qc",
+    "company": "质量保障部",
+    "position": "质检员",
+    "communicator": "王蕾",
+    "realName": "王蕾",
+    "regTime": "2026-03-03T08:30:00"
+  },
+  {
+    "id": "4",
+    "logonName": "operator01",
+    "username": "operator01",
+    "password": "123456",
+    "telephone": "13800000004",
+    "email": "operator01@satellite.local",
+    "role": "user",
+    "company": "测控运行部",
+    "position": "操作员",
+    "communicator": "赵峰",
+    "realName": "赵峰",
+    "regTime": "2026-03-05T14:20:00"
+  }
+]

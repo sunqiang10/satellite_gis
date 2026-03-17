@@ -1,0 +1,67 @@
+[
+  {
+    "id": 1,
+    "stationId": "ST-BJ-001",
+    "stationName": "北京站",
+    "stationCode": "BJ01",
+    "owner": "测控运行部",
+    "canUse": 1,
+    "lon": 116.4074,
+    "lat": 39.9042,
+    "alt": 43.2,
+    "addTime": "2026-03-01 08:00:00",
+    "modTime": "2026-03-17 09:00:00"
+  },
+  {
+    "id": 2,
+    "stationId": "ST-KS-002",
+    "stationName": "喀什站",
+    "stationCode": "KS02",
+    "owner": "测控运行部",
+    "canUse": 1,
+    "lon": 75.9898,
+    "lat": 39.4704,
+    "alt": 1298.5,
+    "addTime": "2026-03-01 08:20:00",
+    "modTime": "2026-03-17 09:05:00"
+  },
+  {
+    "id": 3,
+    "stationId": "ST-SY-003",
+    "stationName": "三亚站",
+    "stationCode": "SY03",
+    "owner": "测控运行部",
+    "canUse": 1,
+    "lon": 109.5119,
+    "lat": 18.2528,
+    "alt": 15.7,
+    "addTime": "2026-03-01 08:40:00",
+    "modTime": "2026-03-17 09:10:00"
+  },
+  {
+    "id": 4,
+    "stationId": "ST-JMS-004",
+    "stationName": "佳木斯站",
+    "stationCode": "JMS04",
+    "owner": "测控运行部",
+    "canUse": 0,
+    "lon": 130.3616,
+    "lat": 46.8096,
+    "alt": 81.3,
+    "addTime": "2026-03-02 09:30:00",
+    "modTime": "2026-03-17 09:15:00"
+  },
+  {
+    "id": 5,
+    "stationId": "ST-ALS-005",
+    "stationName": "阿拉善站",
+    "stationCode": "ALS05",
+    "owner": "测控运行部",
+    "canUse": 1,
+    "lon": 105.7289,
+    "lat": 38.8515,
+    "alt": 1450.9,
+    "addTime": "2026-03-02 10:20:00",
+    "modTime": "2026-03-17 09:18:00"
+  }
+]
